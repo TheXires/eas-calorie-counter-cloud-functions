@@ -7,6 +7,17 @@ const firebase = admin.initializeApp();
 const db = admin.firestore();
 
 /**
+ * get the start time of today
+ *
+ * @returns start of today in ms
+ */
+const getStartOfToday = (): number => {
+  const todayStart = new Date();
+  todayStart.setUTCHours(0, 0, 0, 0);
+  return todayStart.getTime();
+};
+
+/**
  * deletes all user data and the user itself
  */
 export const deleteUser = functions.https.onCall(async (_, context) => {
@@ -43,6 +54,60 @@ export const deleteUser = functions.https.onCall(async (_, context) => {
     deleted: true,
   };
 });
+
+/**
+ * creates and updates weight statistic whenever the users weight get changed
+ */
+export const createWeightStatistic = functions.firestore
+  .document('users/{userId}')
+  .onUpdate(async (snap, context) => {
+    console.log('detected weight change');
+
+    const oldWeight = snap.after.data().settings.weight;
+    const newWeight = snap.after.data().settings.weight;
+
+    if (!oldWeight || !newWeight) return;
+
+    const { userId } = context.params;
+    if (!userId) return;
+    const weightStatistic = await db
+      .collection('users')
+      .doc(userId)
+      .collection('statistics')
+      .doc('weightStatistic')
+      .get();
+
+    const weightHistory = weightStatistic.data()?.weightHistory;
+    let newWeightHistory: any[] = [];
+    const today = getStartOfToday();
+    if (weightHistory) {
+      newWeightHistory = [...weightHistory];
+      const index = newWeightHistory.findIndex(
+        (element: { date: number; weight: number }) => element.date === today,
+      );
+      if (index !== -1) {
+        newWeightHistory[index].weight = newWeight;
+      } else {
+        newWeightHistory.push({ date: today, weight: newWeight });
+      }
+    } else {
+      newWeightHistory[0] = { date: today, weight: newWeight };
+    }
+
+    console.log(newWeightHistory);
+
+    await db
+      .collection('users')
+      .doc(userId)
+      .collection('statistics')
+      .doc('weightStatistic')
+      .set({
+        weightHistory: newWeightHistory,
+        lastModified: Date.now(),
+      });
+
+    console.log('finished');
+  });
 
 /**
  * creates and updates statistics based on user consumptions
