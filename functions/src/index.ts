@@ -1,5 +1,5 @@
-import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import * as functions from 'firebase-functions';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const firebaseTools = require('firebase-tools');
 
@@ -29,7 +29,7 @@ export const deleteUser = functions.https.onCall(async (_, context) => {
   }
 
   const userId = context.auth.uid;
-  console.log(`User ${userId} requested account deletion`);
+  functions.logger.log(`User ${userId} requested account deletion`);
 
   const path = `users/${userId}`;
 
@@ -48,7 +48,7 @@ export const deleteUser = functions.https.onCall(async (_, context) => {
 
   await firebase.auth().deleteUser(userId);
 
-  console.log(`Deleted User ${userId}`);
+  functions.logger.log(`Deleted User ${userId}`);
 
   return {
     deleted: true,
@@ -61,7 +61,7 @@ export const deleteUser = functions.https.onCall(async (_, context) => {
 export const createWeightStatistic = functions.firestore
   .document('users/{userId}')
   .onUpdate(async (snap, context) => {
-    console.log('detected weight change');
+    functions.logger.log('detected weight change');
 
     const oldWeight = snap.after.data().settings.weight;
     const newWeight = snap.after.data().settings.weight;
@@ -94,7 +94,7 @@ export const createWeightStatistic = functions.firestore
       newWeightHistory[0] = { date: today, weight: newWeight };
     }
 
-    console.log(newWeightHistory);
+    functions.logger.log(newWeightHistory);
 
     await db
       .collection('users')
@@ -106,7 +106,7 @@ export const createWeightStatistic = functions.firestore
         lastModified: Date.now(),
       });
 
-    console.log('finished');
+    functions.logger.log('finished');
   });
 
 /**
@@ -122,7 +122,7 @@ export const createDailyStatistics = functions.https.onCall(
     }
 
     const userId: string = context.auth.uid;
-    console.log(`creating statistics for ${userId}`);
+    functions.logger.log(`creating statistics for ${userId}`);
 
     const statisticsDocument = await db
       .collection('users')
@@ -192,7 +192,7 @@ export const createDailyStatistics = functions.https.onCall(
         data: statisticsData,
       });
 
-    console.log(`finished creating statistics for ${userId}`);
+    functions.logger.log(`finished creating statistics for ${userId}`);
 
     return {
       updatedStatistics: true,
